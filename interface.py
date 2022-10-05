@@ -95,11 +95,11 @@ class UI(event.EventEmitter):
             self.emit(event.UI_TEMPO_VALUE_CHANGE, encoder_delta)
 
 
-class Display:
+class LED:
     def __init__(self):
         self.tempo_led = digitalio.DigitalInOut(TEMPO_LED_PIN)
         self.tempo_led.direction = digitalio.Direction.OUTPUT
-        self.tempo_led.value = False
+        self.tempo_led.value = True
 
-    def toggle_led(self, *args):
+    def toggle_tempo_led(self, *args):
         self.tempo_led.value = not self.tempo_led.value

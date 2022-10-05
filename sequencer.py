@@ -24,7 +24,7 @@ class StepSequencer(event.EventEmitter):
         """Sets the internal tempo. beat_millis is 1/16th note time in milliseconds"""
         self.tempo = tempo
         self.beat_millis = 60_000 // self.steps_per_beat // tempo
-        print("seq.set_tempo: %6.2f %d" % (self.beat_millis, tempo))
+        self.emit(event.SEQ_TEMPO_CHANGE, tempo)
 
     def add_tempo(self, delta):
         self.set_tempo(self.tempo + delta)
@@ -54,7 +54,7 @@ class StepSequencer(event.EventEmitter):
     def update(self):
         """Update state of sequencer. Must be called regularly in main"""
         now = ticks_ms()
-        delta_t = now - self.last_beat_millis  # FIXME: better name, 'real_beat_millis'?
+        delta_t = now - self.last_beat_millis
 
         # if time for new note, trigger it
         if delta_t >= self.beat_millis:
@@ -122,8 +122,7 @@ class EuclideanSequencer(StepSequencer):
 
     def __str__(self):
         return "\n".join(
-            f"ch: {ch} hits: {self.EUC16[idx]}"
-            for ch, idx in enumerate(self.hits)
+            f"ch: {ch} hits: {self.EUC16[idx]}" for ch, idx in enumerate(self.hits)
         )
 
     def trigger_step(self):
@@ -132,11 +131,13 @@ class EuclideanSequencer(StepSequencer):
 
         for ch, idx in enumerate(self.hits):
             hit = self.EUC16[idx][self.i]
+            prev_hit = self.EUC16[idx][(self.i - 1) % self.step_count]
             triggers[ch] = hit
+
             if hit:
-                self.emit(event.SEQ_STEP_TRIGGER_ON, ch, 0, 127)
-            else:
-                self.emit(event.SEQ_STEP_TRIGGER_OFF, ch, 0, 127)
+                self.emit(event.SEQ_STEP_TRIGGER_ON, ch, ch, 127)
+            elif prev_hit == 1:
+                self.emit(event.SEQ_STEP_TRIGGER_OFF, ch, ch, 127)
 
         self.emit(event.SEQ_STEP_TRIGGER_ALL, triggers)
 

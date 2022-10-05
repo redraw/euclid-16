@@ -1,11 +1,11 @@
 import gc
-import time
 import audiocore
 import board
 import audiobusio
 import audiomixer
 
 import interface
+from midi import MIDI
 import sequencer
 import event
 
@@ -26,9 +26,10 @@ samples = [
 ]
 
 
-def play_audio(channel_triggers):
+def play_audio(triggers):
     gc.collect()
-    for ch, trigger in enumerate(channel_triggers):
+
+    for ch, trigger in enumerate(triggers):
         if trigger:
             sample = samples[ch]
             mixer.voice[ch].level = 0.1
@@ -37,7 +38,11 @@ def play_audio(channel_triggers):
             mixer.voice[ch].stop()
 
 
+midi = MIDI()
+
 seq = sequencer.EuclideanSequencer(channels=len(samples))
+seq.register(event.SEQ_STEP_TRIGGER_ON, midi.note_on)
+seq.register(event.SEQ_STEP_TRIGGER_OFF, midi.note_off)
 seq.register(event.SEQ_STEP_TRIGGER_ALL, play_audio)
 # seq.register(event.SEQ_STEP_TRIGGER_ON, play_voice)
 # seq.register(event.SEQ_STEP_TRIGGER_OFF, stop_voice)
@@ -48,8 +53,8 @@ ui.register(event.UI_TEMPO_VALUE_CHANGE, seq.add_tempo)
 ui.register(event.UI_HITS_VALUE_CHANGE, seq.update_hits)
 ui.register(event.UI_ENCODER_BUTTON_PRESSED, seq.toggle_play_pause)
 
-display = interface.Display()
-seq.register(event.SEQ_ACTIVE_STEP, display.toggle_led)
+leds = interface.LED()
+seq.register(event.SEQ_ACTIVE_STEP, leds.toggle_tempo_led)
 
 while True:
     ui.update()
