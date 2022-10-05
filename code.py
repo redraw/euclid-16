@@ -10,7 +10,7 @@ import sequencer
 import event
 
 audio = audiobusio.I2SOut(board.GP10, board.GP11, board.GP9)
-mixer = audiomixer.Mixer(voice_count=8, sample_rate=44100, channel_count=1)
+mixer = audiomixer.Mixer(voice_count=4, sample_rate=44100, channel_count=1)
 audio.play(mixer)
 
 kick = audiocore.WaveFile(open("dr55/kick.wav", "rb"))
@@ -44,8 +44,6 @@ seq = sequencer.EuclideanSequencer(channels=len(samples))
 seq.register(event.SEQ_STEP_TRIGGER_ON, midi.note_on)
 seq.register(event.SEQ_STEP_TRIGGER_OFF, midi.note_off)
 seq.register(event.SEQ_STEP_TRIGGER_ALL, play_audio)
-# seq.register(event.SEQ_STEP_TRIGGER_ON, play_voice)
-# seq.register(event.SEQ_STEP_TRIGGER_OFF, stop_voice)
 seq.play()
 
 ui = interface.UI()

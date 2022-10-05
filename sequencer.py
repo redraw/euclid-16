@@ -2,9 +2,10 @@
 # 3 Oct 2022 - @redraw
 # Based on picostepseq : https://github.com/todbot/picostepseq/
 from random import randint
+import time
 import event
 
-from supervisor import ticks_ms  # thank you dhalbert
+from adafruit_ticks import ticks_ms, ticks_add, ticks_diff
 
 
 class StepSequencer(event.EventEmitter):
@@ -54,7 +55,8 @@ class StepSequencer(event.EventEmitter):
     def update(self):
         """Update state of sequencer. Must be called regularly in main"""
         now = ticks_ms()
-        delta_t = now - self.last_beat_millis
+        # delta_t = now - self.last_beat_millis
+        delta_t = ticks_diff(now, self.last_beat_millis)
 
         # if time for new note, trigger it
         if delta_t >= self.beat_millis:
@@ -83,9 +85,7 @@ class StepSequencer(event.EventEmitter):
         self.playing = False
 
     def play(self):
-        self.last_beat_millis = (
-            ticks_ms() - self.beat_millis
-        )  # ensures we start on immediately
+        self.last_beat_millis = ticks_ms() - self.beat_millis
         self.playing = True
 
 
@@ -112,18 +112,21 @@ class EuclideanSequencer(StepSequencer):
     )
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, step_count=16, **kwargs)
-        # self.hits = [
-        #     randint(0, len(self.EUC16)) for _ in range(self.channels)
-        # ]  # EUC16 idx per channel
+        super().__init__(*args, step_count=16, randomize=True, **kwargs)
         self.hits = [0] * self.channels
         self.offsets = [0] * self.channels  # EUC16 idx per channel
         self.limits = [16] * self.channels  # EUC16 idx per channel
+        self.randomize()
 
     def __str__(self):
         return "\n".join(
             f"ch: {ch} hits: {self.EUC16[idx]}" for ch, idx in enumerate(self.hits)
         )
+
+    def randomize(self):
+        self.hits = [
+            randint(0, len(self.EUC16) - 1) for _ in range(self.channels)
+        ]  # EUC16 idx per channel
 
     def trigger_step(self):
         self.emit(event.SEQ_ACTIVE_STEP, self.i)
@@ -140,7 +143,7 @@ class EuclideanSequencer(StepSequencer):
                 self.emit(event.SEQ_STEP_TRIGGER_OFF, ch, ch, 127)
 
         self.emit(event.SEQ_STEP_TRIGGER_ALL, triggers)
-
+    
     def update_hits(self, ch, delta):
         self.hits[ch] = max(0, min(self.hits[ch] + delta, self.step_count))
         print("-")
