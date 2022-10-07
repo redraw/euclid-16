@@ -82,6 +82,10 @@ class UI(event.EventEmitter):
                         self.active_voice,
                         encoder_delta,
                     )
+                elif idx == 3:
+                    self.emit(
+                        event.UI_PATTERN_RANDOMIZE, self.active_voice, encoder_delta
+                    )
 
             elif button.rose and self.active_menu == idx:
                 # show active voice's steps

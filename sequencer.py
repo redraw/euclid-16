@@ -111,40 +111,76 @@ class EuclideanSequencer(StepSequencer):
         (1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
     )
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, step_count=16, randomize=True, **kwargs)
-        self.hits = [0] * self.channels
-        self.offsets = [0] * self.channels  # EUC16 idx per channel
-        self.limits = [16] * self.channels  # EUC16 idx per channel
-        self.randomize()
+    def __init__(self, *args, randomize=True, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.euc_idxs = [0] * self.channels  # EUC16 idx per channel
+        self.offsets = [0] * self.channels  # offset value per channel
+        self.lengths = [self.step_count] * self.channels  # step length value per channel
+        self.patterns = [[0] * self.step_count for _ in range(self.channels)]  # calculated patterns (EUC16 + offset + length)
+
+        if randomize:
+            self.randomize()
 
     def __str__(self):
         return "\n".join(
-            f"ch: {ch} hits: {self.EUC16[idx]}" for ch, idx in enumerate(self.hits)
+            f"ch: {ch} pattern: {pattern}" for ch, pattern in enumerate(self.patterns)
         )
 
-    def randomize(self):
-        self.hits = [
+    def randomize(self, *args):
+        self.euc_idxs = [
             randint(0, len(self.EUC16) - 1) for _ in range(self.channels)
-        ]  # EUC16 idx per channel
+        ] 
+        
+        for ch in range(self.channels):
+            self._calculate_pattern(ch)
+
+        print("-")
+        print(self)
 
     def trigger_step(self):
         self.emit(event.SEQ_ACTIVE_STEP, self.i)
         triggers = [0] * self.channels
 
-        for ch, idx in enumerate(self.hits):
-            hit = self.EUC16[idx][self.i]
-            prev_hit = self.EUC16[idx][(self.i - 1) % self.step_count]
-            triggers[ch] = hit
+        for ch, pattern in enumerate(self.patterns):
+            hit = triggers[ch] = pattern[self.i]
+            prev_hit = pattern[(self.i - 1) % self.step_count]
 
             if hit:
                 self.emit(event.SEQ_STEP_TRIGGER_ON, ch, ch, 127)
             elif prev_hit == 1:
                 self.emit(event.SEQ_STEP_TRIGGER_OFF, ch, ch, 127)
 
-        self.emit(event.SEQ_STEP_TRIGGER_ALL, triggers)
+        self.emit(event.SEQ_STEP_TRIGGER_CHANNELS, triggers)
+    
+    @staticmethod
+    def _rotate(arr, n):
+        return arr[n:] + arr[:n]
+
+    def _calculate_pattern(self, ch):
+        idx = self.euc_idxs[ch]
+        rotated = self._rotate(self.EUC16[idx], self.offsets[ch])
+        self.patterns[ch] = tuple(
+            1 if hit and i <= self.lengths[ch] else 0 
+            for i, hit in enumerate(rotated)
+        )
     
     def update_hits(self, ch, delta):
-        self.hits[ch] = max(0, min(self.hits[ch] + delta, self.step_count))
+        """set EUC16 beat index per channel, delta might be -1 or 1"""
+        self.euc_idxs[ch] = max(0, min(self.euc_idxs[ch] + delta, len(self.EUC16) - 1))
+        self._calculate_pattern(ch)
+        print("-")
+        print(self)
+
+    def update_offsets(self, ch, delta):
+        """set offset per channel between -step_count to +step_count, delta might be -1 or 1"""
+        self.offsets[ch] = (self.offsets[ch] - delta) % self.step_count
+        self._calculate_pattern(ch)
+        print("-")
+        print(self)
+
+    def update_lengths(self, ch, delta):
+        """set step length per channel between 0 and step_count, delta might be -1 or 1"""
+        self.lengths[ch] = max(0, min(self.lengths[ch] + delta, self.step_count))
+        self._calculate_pattern(ch)
         print("-")
         print(self)
