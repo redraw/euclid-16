@@ -15,6 +15,7 @@ SEQ_STEP_TRIGGER_CHANNELS = 12  # [ch1, ch2, ch3...] where chX is a value 0/1 if
 SEQ_ACTIVE_STEP = 13
 SEQ_TEMPO_CHANGE = 14
 SEQ_PATTERN_CHANGE = 15
+SEQ_STEP_TRIGGER_MIDI = 16
 
 
 class EventEmitter:

@@ -6,15 +6,15 @@ import audiobusio
 import audiocore
 import audiomixer
 
+from midi import MIDI
 import interface
-import midi
 import sequencer
 import event
 
-SAMPLE_PACK = "dr55"
+SAMPLE_PACK = "cr78-44k"
 SAMPLE_FOLDER = os.listdir("samplepack")
 SAMPLE_RATE = 44100
-MAX_VOICES = 4
+MAX_VOICES = 8
 
 # dac = audiopwmio.PWMAudioOut(board.GP13)
 dac = audiobusio.I2SOut(board.GP10, board.GP11, board.GP9)
@@ -46,11 +46,12 @@ def play_audio(triggers):
             mixer.voice[ch].play(sample)
 
 
-midi = midi.MIDI()
+midi = MIDI()
 
 seq = sequencer.EuclideanSequencer(channels=MAX_VOICES, tempo=90)
-seq.register(event.SEQ_STEP_TRIGGER_ON, midi.note_on)
-seq.register(event.SEQ_STEP_TRIGGER_OFF, midi.note_off)
+seq.register(event.SEQ_STEP_TRIGGER_MIDI, midi.trigger_notes)
+# seq.register(event.SEQ_STEP_TRIGGER_ON, midi.note_on)
+# seq.register(event.SEQ_STEP_TRIGGER_OFF, midi.note_off)
 
 try:
     load_samplepack(SAMPLE_PACK, randomize=False)
@@ -58,18 +59,19 @@ try:
 except Exception as e:
     print(e)
 
-ui = interface.UI()
-ui.register(event.UI_TEMPO_VALUE_CHANGE, seq.add_tempo)
-ui.register(event.UI_HITS_VALUE_CHANGE, seq.update_hits)
-ui.register(event.UI_OFFSET_VALUE_CHANGE, seq.update_offsets)
-ui.register(event.UI_STEP_LENGTH_VALUE_CHANGE, seq.update_lengths)
-ui.register(event.UI_ENCODER_BUTTON_PRESSED, seq.toggle_play_pause)
-ui.register(event.UI_PATTERN_RANDOMIZE, seq.randomize)
-ui.register(event.UI_SYNC_CLOCK_IN, seq.trigger_next)
+# ui = interface.UI()
+# ui.register(event.UI_TEMPO_VALUE_CHANGE, seq.add_tempo)
+# ui.register(event.UI_HITS_VALUE_CHANGE, seq.update_hits)
+# ui.register(event.UI_OFFSET_VALUE_CHANGE, seq.update_offsets)
+# ui.register(event.UI_STEP_LENGTH_VALUE_CHANGE, seq.update_lengths)
+# ui.register(event.UI_ENCODER_BUTTON_PRESSED, seq.toggle_play_pause)
+# ui.register(event.UI_PATTERN_RANDOMIZE, seq.randomize)
+# ui.register(event.UI_SYNC_CLOCK_IN, seq.trigger_next)
+# ui.register(event.UI_VOICE_CHANGE, seq.update_active_voice)
 
-leds = interface.LED()
+# leds = interface.LED()
 ring = interface.NeoPixel()
-seq.register(event.SEQ_ACTIVE_STEP, leds.toggle_tempo_led)
+# seq.register(event.SEQ_ACTIVE_STEP, leds.toggle_tempo_led)
 seq.register(event.SEQ_ACTIVE_STEP, ring.next_step)
 seq.register(event.SEQ_PATTERN_CHANGE, ring.update_pattern)
 

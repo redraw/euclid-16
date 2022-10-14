@@ -3,8 +3,10 @@
 # Based on picostepseq : https://github.com/todbot/picostepseq/
 from random import randint
 import event
+from midi import MIDI
 
 from adafruit_ticks import ticks_ms, ticks_diff
+midi = MIDI()
 
 
 class StepSequencer(event.EventEmitter):
@@ -152,22 +154,28 @@ class EuclideanSequencer(StepSequencer):
     
     def trigger_step(self):
         self.emit(event.SEQ_ACTIVE_STEP, self.i)
-        triggers = [0] * self.channels
+        audio_triggers = [0] * self.channels
+        midi_notes = []
 
         for ch, pattern in enumerate(self.patterns):
-            hit = triggers[ch] = pattern[self.i]
-            prev_hit = pattern[(self.i - 1) % self.step_count]
+            hit = audio_triggers[ch] = pattern[self.i]
+            prev_two_step = (self.i - 2) % self.step_count
+            prev_two_hit = pattern[prev_two_step]
 
+            if prev_two_hit:
+                midi_notes.append((ch, ch, 0))
             if hit:
-                self.emit(event.SEQ_STEP_TRIGGER_ON, ch, ch, 127)
-            if prev_hit == 1:
-                self.emit(event.SEQ_STEP_TRIGGER_OFF, ch, ch, 127)
+                midi_notes.append((ch, ch, 127))
 
-        self.emit(event.SEQ_STEP_TRIGGER_CHANNELS, triggers)
+        self.emit(event.SEQ_STEP_TRIGGER_MIDI, midi_notes)
+        self.emit(event.SEQ_STEP_TRIGGER_CHANNELS, audio_triggers)
     
+    def update_active_voice(self, ch):
+        self.active_ch = ch
+        self._calculate_pattern(ch)
+   
     def update_hits(self, ch, delta):
         """set EUC16 beat index per channel, delta might be -1 or 1"""
-        self.active_ch = ch
         self.euc_idxs[ch] = max(0, min(self.euc_idxs[ch] + delta, len(self.EUC16) - 1))
         self._calculate_pattern(ch)
         print("-")
@@ -175,7 +183,6 @@ class EuclideanSequencer(StepSequencer):
 
     def update_offsets(self, ch, delta):
         """set offset per channel between -step_count to +step_count, delta might be -1 or 1"""
-        self.active_ch = ch
         self.offsets[ch] = (self.offsets[ch] - delta) % self.step_count
         self._calculate_pattern(ch)
         print("-")
@@ -183,7 +190,6 @@ class EuclideanSequencer(StepSequencer):
 
     def update_lengths(self, ch, delta):
         """set step length per channel between 0 and step_count, delta might be -1 or 1"""
-        self.active_ch = ch
         self.lengths[ch] = max(0, min(self.lengths[ch] + delta, self.step_count))
         self._calculate_pattern(ch)
         print("-")
