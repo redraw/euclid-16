@@ -132,13 +132,16 @@ class LED:
         self.tempo_pin.direction = digitalio.Direction.OUTPUT
         self.tempo_pin.value = True
 
+        # using bitbangio as I messed up the default SPI pins
         spi = bitbangio.SPI(LEDS_595_SCLK, MOSI=LEDS_595_DATA)
         latch_pin = digitalio.DigitalInOut(LEDS_595_LATCH_PIN)
         self.sr = adafruit_74hc595.ShiftRegister74HC595(spi, latch_pin, number_of_shift_registers=2)
 
+        self.step_count = step_count
         self.step_pins = [self.sr.get_pin((x-8) % step_count) for x in range(step_count)]
         self.clear_steps()
-        self._prev_step = 0
+        self._prev_step_value = False
+        self.pattern = []
     
     def _test(self):
         i = 0
@@ -156,11 +159,22 @@ class LED:
     def toggle_tempo_led(self, *args):
         self.tempo_pin.value = not self.tempo_pin.value
 
+    def next_step(self, step):
+        prev_step = (step - 1) % self.step_count
+        self.step_pins[prev_step].value = self._prev_step_value
+        step_value = self.step_pins[step].value
+        self._prev_step_value = step_value
+        if not step_value:
+            self.step_pins[step].value = True
+
     def update_pattern(self, pattern):
         self.clear_steps()
-        for step, hit in enumerate(pattern):
-            if hit:
-                self.step_pins[step].value = True
+        self.pattern = pattern
+        self._update_pattern()
+
+    def _update_pattern(self):
+        for step, hit in enumerate(self.pattern):
+            self.step_pins[step].value = hit
 
 
 class NeoPixel:
