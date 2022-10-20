@@ -71,6 +71,7 @@ ui.register(event.UI_VOICE_CHANGE, seq.update_active_voice)
 
 leds = interface.LED()
 seq.register(event.SEQ_ACTIVE_STEP, leds.toggle_tempo_led)
+seq.register(event.SEQ_PATTERN_CHANGE, leds.update_pattern)
 # ring = interface.NeoPixel()
 # seq.register(event.SEQ_ACTIVE_STEP, ring.next_step)
 # seq.register(event.SEQ_PATTERN_CHANGE, ring.update_pattern)

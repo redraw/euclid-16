@@ -136,8 +136,9 @@ class LED:
         latch_pin = digitalio.DigitalInOut(LEDS_595_LATCH_PIN)
         self.sr = adafruit_74hc595.ShiftRegister74HC595(spi, latch_pin, number_of_shift_registers=2)
 
-        self.step_pins = [self.sr.get_pin((x+7) % step_count) for x in range(step_count)]
+        self.step_pins = [self.sr.get_pin((x-8) % step_count) for x in range(step_count)]
         self.clear_steps()
+        self._prev_step = 0
     
     def _test(self):
         i = 0
@@ -154,6 +155,12 @@ class LED:
 
     def toggle_tempo_led(self, *args):
         self.tempo_pin.value = not self.tempo_pin.value
+
+    def update_pattern(self, pattern):
+        self.clear_steps()
+        for step, hit in enumerate(pattern):
+            if hit:
+                self.step_pins[step].value = True
 
 
 class NeoPixel:
