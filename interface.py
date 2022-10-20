@@ -1,10 +1,13 @@
+import time
 import rotaryio
+import bitbangio
 import digitalio
 import board
 
 from adafruit_debouncer import Debouncer
 from adafruit_ticks import ticks_ms
 import neopixel
+import adafruit_74hc595
 
 import event
 
@@ -23,8 +26,12 @@ ENCODER_PINS = (
     board.GP16,
 )
 
-ENCODER_BUTTON_PIN = board.GP22
-TEMPO_LED_PIN = board.GP26
+ENCODER_BUTTON_PIN = board.GP26
+TEMPO_LED_PIN = board.GP22
+
+LEDS_595_LATCH_PIN = board.GP2
+LEDS_595_SCLK = board.GP3
+LEDS_595_DATA = board.GP4
 
 SYNC_CLOCK_IN = board.GP12
 
@@ -120,13 +127,33 @@ class UI(event.EventEmitter):
 
 
 class LED:
-    def __init__(self):
-        self.tempo_led = digitalio.DigitalInOut(TEMPO_LED_PIN)
-        self.tempo_led.direction = digitalio.Direction.OUTPUT
-        self.tempo_led.value = True
+    def __init__(self, step_count=16):
+        self.tempo_pin = digitalio.DigitalInOut(TEMPO_LED_PIN)
+        self.tempo_pin.direction = digitalio.Direction.OUTPUT
+        self.tempo_pin.value = True
+
+        spi = bitbangio.SPI(LEDS_595_SCLK, MOSI=LEDS_595_DATA)
+        latch_pin = digitalio.DigitalInOut(LEDS_595_LATCH_PIN)
+        self.sr = adafruit_74hc595.ShiftRegister74HC595(spi, latch_pin, number_of_shift_registers=2)
+
+        self.step_pins = [self.sr.get_pin((x+7) % step_count) for x in range(step_count)]
+        self.clear_steps()
+    
+    def _test(self):
+        i = 0
+        while True:
+            print(i)
+            if i == 0: self.clear_steps()
+            i = (i+1) % 16
+            self.step_pins[i].value = True
+            time.sleep(.2)
+    
+    def clear_steps(self):
+        for pin in self.step_pins:
+            pin.value = False
 
     def toggle_tempo_led(self, *args):
-        self.tempo_led.value = not self.tempo_led.value
+        self.tempo_pin.value = not self.tempo_pin.value
 
 
 class NeoPixel:
