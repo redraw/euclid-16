@@ -46,12 +46,15 @@ def play_audio(triggers):
             mixer.voice[ch].play(sample)
 
 
-midi = MIDI()
+# Print disk info
+fs_stat = os.statvfs('/')
+print(f"Disk size: {fs_stat[0] * fs_stat[2] / 1024 / 1024} MB")
+print(f"Free space: {fs_stat[0] * fs_stat[3] / 1024 / 1024} MB")
 
+# Connect things!
+midi = MIDI()
 seq = sequencer.EuclideanSequencer(channels=MAX_VOICES, tempo=90)
 seq.register(event.SEQ_STEP_TRIGGER_MIDI, midi.trigger_notes)
-# seq.register(event.SEQ_STEP_TRIGGER_ON, midi.note_on)
-# seq.register(event.SEQ_STEP_TRIGGER_OFF, midi.note_off)
 
 try:
     load_samplepack(SAMPLE_PACK, randomize=False)
@@ -64,23 +67,29 @@ ui.register(event.UI_TEMPO_VALUE_CHANGE, seq.add_tempo)
 ui.register(event.UI_HITS_VALUE_CHANGE, seq.update_hits)
 ui.register(event.UI_OFFSET_VALUE_CHANGE, seq.update_offsets)
 ui.register(event.UI_STEP_LENGTH_VALUE_CHANGE, seq.update_lengths)
-ui.register(event.UI_ENCODER_BUTTON_PRESSED, seq.toggle_play_pause)
+ui.register(event.UI_PLAY_PAUSE, seq.toggle_play_pause)
 ui.register(event.UI_PATTERN_RANDOMIZE, seq.randomize)
 ui.register(event.UI_SYNC_CLOCK_IN, seq.trigger_next)
 ui.register(event.UI_VOICE_CHANGE, seq.update_active_voice)
-ui.register(event.UI_TRIGGER_RESET_PATTERNS, seq.reset)
+ui.register(event.UI_TRIGGER_RESET_PATTERN, seq.reset)
+ui.register(event.UI_LOAD_SEQUENCE, seq.load_sequence)
+ui.register(event.UI_SAVE_SEQUENCE, seq.save_sequence)
 
 leds = interface.LED()
+ui.register(event.UI_SEQUENCE_MODE, leds.set_sequence_mode)
+seq.register(event.SEQ_SEQUENCE_SELECT, leds.select_sequence)
 seq.register(event.SEQ_ACTIVE_STEP, leds.toggle_tempo_led)
 seq.register(event.SEQ_ACTIVE_STEP, leds.next_step)
 seq.register(event.SEQ_PATTERN_CHANGE, leds.update_pattern)
+seq.register(event.SEQ_SEQUENCE_SAVING, leds.set_saving_mode)
 # ring = interface.NeoPixel()
 # seq.register(event.SEQ_ACTIVE_STEP, ring.next_step)
 # seq.register(event.SEQ_PATTERN_CHANGE, ring.update_pattern)
 
-seq.randomize()
+seq.load_sequences()
 seq.play()
 
 while True:
     seq.update()
     ui.update()
+    leds.update()

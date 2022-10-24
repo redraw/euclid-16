@@ -2,9 +2,15 @@
 # 3 Oct 2022 - @redraw
 # Based on picostepseq : https://github.com/todbot/picostepseq/
 from random import randint
-import event
+import os
+import json
 
 from adafruit_ticks import ticks_ms, ticks_diff
+
+import event
+
+SEQUENCES_FILE = "sequences.json"
+MAX_SEQUENCES = 16
 
 
 class StepSequencer(event.EventEmitter):
@@ -18,7 +24,6 @@ class StepSequencer(event.EventEmitter):
         self.set_tempo(tempo)
         self.last_beat_millis = ticks_ms()  # 'tempo' in our native tongue
         self.playing = playing  # is sequence running or not (but use .play()/.pause())
-        self.seqno = seqno  # an 'id' of what sequence it's currently playing
 
     def set_tempo(self, tempo):
         """Sets the internal tempo. beat_millis is 1/16th note time in milliseconds"""
@@ -117,6 +122,8 @@ class EuclideanSequencer(StepSequencer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         assert self.step_count <= 16, "this sequencer supports up to 16 steps!"
+        self.sequence_idx = 0
+        self.sequences = [0] * MAX_SEQUENCES
         self.reset()
 
     def reset(self):
@@ -201,3 +208,51 @@ class EuclideanSequencer(StepSequencer):
         """set step length per channel between 0 and step_count, delta might be -1 or 1"""
         self.lengths[ch] = max(0, min(self.lengths[ch] + delta, self.step_count))
         self._calculate_pattern(ch)
+
+    def load_sequences(self):
+        try:
+            os.stat(SEQUENCES_FILE)
+        except OSError:
+            self.save_sequence()
+
+        with open(SEQUENCES_FILE) as f:
+            self.sequences = json.load(f)
+        
+        self.load_sequence()
+        
+    def load_sequence(self, delta=0):
+        self.sequence_idx = (self.sequence_idx + delta) % self.step_count
+        self.emit(event.SEQ_SEQUENCE_SELECT, self.sequence_idx)
+        
+        print(f"loading {self.sequence_idx}...")
+        sequence = self.sequences[self.sequence_idx]
+
+        # empty sequence check
+        if not sequence:
+            self.reset()
+            return
+
+        self.euc_idxs = bytearray(sequence["euc_idxs"])
+        self.offsets = bytearray(sequence["offsets"])
+        self.lengths = bytearray(sequence["lengths"])
+
+        for ch in range(self.channels):
+            self._calculate_pattern(ch)
+        
+    def save_sequence(self):
+        print(f"saving {self.sequence_idx}...")
+        self.pause()
+        self.emit(event.SEQ_SEQUENCE_SAVING, True)
+
+        self.sequences[self.sequence_idx] = {
+            "euc_idxs": list(self.euc_idxs),
+            "offsets": list(self.offsets),
+            "lengths": list(self.lengths),
+        }
+
+        with open(SEQUENCES_FILE, "wb") as f:
+            json.dump(self.sequences, f)
+
+        print(f"saved.")
+        self.emit(event.SEQ_SEQUENCE_SAVING, False)
+        self.play()
