@@ -1,4 +1,3 @@
-import os
 import board
 import storage
 import digitalio

@@ -72,17 +72,17 @@ class StepSequencer(event.EventEmitter):
                     self.ext_trigger = False
                     print("Turning EXT TRIGGER off")
 
-    def toggle_play_pause(self):
+    def toggle_play_stop(self):
         if self.playing:
             print("Sequencer stopped.")
-            self.pause()
+            self.stop()
         else:
             print("Sequencer playing.")
             self.play()
 
-    def stop(self):  # FIXME: what about pending note
+    def stop(self):
         self.playing = False
-        self.i = 0
+        self.i = 15
         self.last_beat_millis = 0
 
     def pause(self):
@@ -122,9 +122,10 @@ class EuclideanSequencer(StepSequencer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         assert self.step_count <= 16, "this sequencer supports up to 16 steps!"
-        self.sequence_idx = 0
         self.sequences = [0] * MAX_SEQUENCES
         self.reset()
+        self.sequence_idx = 0
+        self.next_sequence_idx = 0
 
     def reset(self):
         self.euc_idxs = bytearray(self.channels)  # EUC16 idx per channel
@@ -176,6 +177,12 @@ class EuclideanSequencer(StepSequencer):
         self._audio_triggers = bytearray(self.channels)
         self._midi_notes = []
 
+        # load next sequence at step 0
+        if self.i == 0 and self.sequence_idx != self.next_sequence_idx:
+            self.sequence_idx = self.next_sequence_idx
+            self.load_sequence()
+
+        # calculate audio/midi triggers for step
         for ch, pattern in enumerate(self.patterns):
             step = self.i
             hit = self._audio_triggers[ch] = (pattern & (2 ** step)) > 0
@@ -219,11 +226,16 @@ class EuclideanSequencer(StepSequencer):
             self.sequences = json.load(f)
         
         self.load_sequence()
+
+    def schedule_sequence(self, delta=0):
+        self.next_sequence_idx = (self.next_sequence_idx + delta) % self.step_count
+        self.emit(event.SEQ_SEQUENCE_SELECT, self.next_sequence_idx)
+
+        if not self.playing:
+            self.sequence_idx = self.next_sequence_idx
+            self.load_sequence()
         
-    def load_sequence(self, delta=0):
-        self.sequence_idx = (self.sequence_idx + delta) % self.step_count
-        self.emit(event.SEQ_SEQUENCE_SELECT, self.sequence_idx)
-        
+    def load_sequence(self):
         print(f"loading {self.sequence_idx}...")
         sequence = self.sequences[self.sequence_idx]
 
@@ -240,10 +252,13 @@ class EuclideanSequencer(StepSequencer):
             self._calculate_pattern(ch)
         
     def save_sequence(self):
-        print(f"saving {self.sequence_idx}...")
-        self.pause()
-        self.emit(event.SEQ_SEQUENCE_SAVING, True)
+        was_playing = self.playing
 
+        if was_playing:
+            self.pause()
+
+        print(f"saving {self.sequence_idx}...")
+        self.emit(event.SEQ_SEQUENCE_SAVING, True)
         self.sequences[self.sequence_idx] = {
             "euc_idxs": list(self.euc_idxs),
             "offsets": list(self.offsets),
@@ -255,4 +270,6 @@ class EuclideanSequencer(StepSequencer):
 
         print(f"saved.")
         self.emit(event.SEQ_SEQUENCE_SAVING, False)
-        self.play()
+
+        if was_playing:
+            self.play()

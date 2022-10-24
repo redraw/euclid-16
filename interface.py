@@ -102,7 +102,7 @@ class UI(event.EventEmitter):
                 
                 # Load sequence
                 elif idx == 3:
-                    self.emit(event.UI_LOAD_SEQUENCE, self._encoder_delta)
+                    self.emit(event.UI_SEQUENCE_SCHEDULE, self._encoder_delta)
 
             elif button.rose and self.active_menu == idx:
                 self.active_menu = -1
@@ -121,7 +121,7 @@ class UI(event.EventEmitter):
 
         # Save sequence
         if self.buttons[3].pressing and self.encoder_button.rose:
-            self.emit(event.UI_SAVE_SEQUENCE)
+            self.emit(event.UI_SEQUENCE_SAVE)
 
         hold_millis = ticks_diff(self._now, self._last_hold_millis)
 
@@ -138,7 +138,7 @@ class UI(event.EventEmitter):
         # Turn encoder (without buttons pressed)
         if not any(button.pressing for button in self.buttons):
             if self.encoder_button.fell:
-                self.emit(event.UI_PLAY_PAUSE)
+                self.emit(event.UI_PLAY_STOP)
 
             if self._encoder_delta:
                 self.emit(event.UI_TEMPO_VALUE_CHANGE, self._encoder_delta)
@@ -166,14 +166,16 @@ class LED:
         self.sequence_mode = False
         self.saving_mode = False
         self.sequence_idx = 0
+
         self._waiting_idx = 0
         self._waiting_tick = ticks_ms()
     
     def clear(self):
         self.sr.gpio = bytearray((0, 0))
 
-    def toggle_tempo_led(self, *args):
-        self.tempo_pin.value = not self.tempo_pin.value
+    def toggle_tempo_led(self, step):
+        """turn on tempo led on even numbers"""
+        self.tempo_pin.value = step % 2 == 0
 
     def next_step(self, step):
         """sum up pattern and current step in an OR operation"""
@@ -193,6 +195,8 @@ class LED:
         self.sequence_mode = enabled
         if enabled:
             self.show_sequence()
+        else:
+            self.show_pattern()
 
     def set_saving_mode(self, enabled):
         self.saving_mode = enabled
@@ -204,6 +208,10 @@ class LED:
     def select_sequence(self, idx):
         self.sequence_idx = idx
         self.show_sequence()
+
+    def show_pattern(self):
+        self.clear()
+        self._update_leds(self.pattern)
 
     def show_sequence(self):
         self.clear()
