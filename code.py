@@ -68,6 +68,7 @@ ui.register(event.UI_ENCODER_BUTTON_PRESSED, seq.toggle_play_pause)
 ui.register(event.UI_PATTERN_RANDOMIZE, seq.randomize)
 ui.register(event.UI_SYNC_CLOCK_IN, seq.trigger_next)
 ui.register(event.UI_VOICE_CHANGE, seq.update_active_voice)
+ui.register(event.UI_TRIGGER_RESET_PATTERNS, seq.reset)
 
 leds = interface.LED()
 seq.register(event.SEQ_ACTIVE_STEP, leds.toggle_tempo_led)

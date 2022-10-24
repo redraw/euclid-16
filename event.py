@@ -8,14 +8,15 @@ UI_TEMPO_VALUE_CHANGE = 6
 UI_PATTERN_RANDOMIZE = 7
 UI_SYNC_CLOCK_IN = 8
 UI_SYNC_CLOCK_OUT = 9
+UI_TRIGGER_RESET_PATTERNS = 10
 
-SEQ_STEP_TRIGGER_ON = 10  # (channel, note, velocity)
-SEQ_STEP_TRIGGER_OFF = 11  # (channel, note, velocity)
-SEQ_STEP_TRIGGER_CHANNELS = 12  # [ch1, ch2, ch3...] where chX is a value 0/1 if channel is triggered or not
-SEQ_ACTIVE_STEP = 13
-SEQ_TEMPO_CHANGE = 14
-SEQ_PATTERN_CHANGE = 15
-SEQ_STEP_TRIGGER_MIDI = 16
+SEQ_STEP_TRIGGER_ON = 11  # (channel, note, velocity)
+SEQ_STEP_TRIGGER_OFF = 12  # (channel, note, velocity)
+SEQ_STEP_TRIGGER_CHANNELS = 13  # [ch1, ch2, ch3...] where chX is a value 0/1 if channel is triggered or not
+SEQ_ACTIVE_STEP = 14
+SEQ_TEMPO_CHANGE = 15
+SEQ_PATTERN_CHANGE = 16
+SEQ_STEP_TRIGGER_MIDI = 17
 
 
 class EventEmitter:

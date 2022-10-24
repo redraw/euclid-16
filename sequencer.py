@@ -3,10 +3,8 @@
 # Based on picostepseq : https://github.com/todbot/picostepseq/
 from random import randint
 import event
-from midi import MIDI
 
 from adafruit_ticks import ticks_ms, ticks_diff
-midi = MIDI()
 
 
 class StepSequencer(event.EventEmitter):
@@ -91,84 +89,99 @@ class StepSequencer(event.EventEmitter):
 
 
 class EuclideanSequencer(StepSequencer):
-    # pre-calculated euclidean beats
+    # Pre-calculated euclidean patterns
+    # Each pattern is represented as a 16-bit integer
+    # Bit 1 is hit, bit 0 is silence
+    # LSB: step 0
+    # MSB: step 16
     EUC16 = (
-        (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
-        (1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
-        (1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0),
-        (1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0),
-        (1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0),
-        (1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0),
-        (1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0),
-        (1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0),
-        (1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0),
-        (1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0),
-        (1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1),
-        (1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1),
-        (1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1),
-        (1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1),
-        (1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1),
-        (1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0),
-        (1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+        0b0000000000000000,
+        0b0000000000000001,
+        0b0000000100000001,
+        0b0000010000100001,
+        0b0001000100010001,
+        0b0001001001001001,
+        0b0010100100101001,
+        0b0101010010101001,
+        0b0101010101010101,
+        0b0101011010101101,
+        0b1010110110101101,
+        0b1101101101101101,
+        0b1101110111011101,
+        0b1111011110111101,
+        0b1111110111111101,
+        0b0111111111111111,
+        0b1111111111111111,
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.euc_idxs = [0] * self.channels  # EUC16 idx per channel
-        self.offsets = [0] * self.channels  # offset value per channel
-        self.lengths = [self.step_count] * self.channels  # step length value per channel
-        self.patterns = [[0] * self.step_count for _ in range(self.channels)]  # calculated patterns (EUC16 + offset + length)
+        assert self.step_count <= 16, "this sequencer supports up to 16 steps!"
+        self.reset()
+
+    def reset(self):
+        self.euc_idxs = bytearray(self.channels)  # EUC16 idx per channel
+        self.offsets = bytearray(self.channels)  # offset value per channel
+        self.lengths = bytearray(self.step_count for _ in range(self.channels))  # step length value per channel
+        self.patterns = [0b0 for _ in range(self.channels)]  # calculated patterns (EUC16 + offset + length)
+        self._audio_triggers = bytearray(self.channels)
+        self._midi_notes = []
         self.active_ch = 0
 
     def __str__(self):
         return "\n".join(
-            f"ch: {ch} pattern: {pattern}" for ch, pattern in enumerate(self.patterns)
+            f"ch: {ch} pattern: {bin(pattern)}" for ch, pattern in enumerate(self.patterns)
         )
 
     def randomize(self, *args):
-        self.euc_idxs = [
-            randint(0, len(self.EUC16) - 1) for _ in range(self.channels)
-        ] 
-        
         for ch in range(self.channels):
+            self.euc_idxs[ch] = randint(0, len(self.EUC16) - 1)
+            self.offsets[ch] = randint(0, self.step_count)
+            self.lengths[ch] = randint(self.step_count // 2, self.step_count)
             self._calculate_pattern(ch)
-
-        print("-")
-        print(self)
-
-    @staticmethod
-    def _rotate(arr, n):
-        return arr[n:] + arr[:n]
 
     def _calculate_pattern(self, ch):
         idx = self.euc_idxs[ch]
-        rotated = self._rotate(self.EUC16[idx], self.offsets[ch])
-        pattern = tuple(
-            1 if hit and i <= self.lengths[ch] else 0 
-            for i, hit in enumerate(rotated)
-        )
+        pattern = self.EUC16[idx]
+        pattern = self._shrink(pattern, self.lengths[ch])
+        pattern = self._rotate(pattern, self.offsets[ch])
         self.patterns[ch] = pattern
 
         if ch == self.active_ch:
             self.emit(event.SEQ_PATTERN_CHANGE, pattern)
     
+    @staticmethod
+    def _shrink(pattern, n):
+        return pattern & (2 ** n - 1)
+
+    @staticmethod
+    def _rotate(pattern, n):
+        """
+        Taking advantage of the RPi Pico 32-bit CPU,
+        we can perform a 32-bit bitwise operation
+        to circular shift the 16-bit pattern.
+        """
+        n %= 16
+        return (pattern >> n) | (pattern << 16 - n) & 0xFFFF
+
     def trigger_step(self):
         self.emit(event.SEQ_ACTIVE_STEP, self.i)
-        audio_triggers = [0] * self.channels
-        midi_notes = []
+        self._audio_triggers = bytearray(self.channels)
+        self._midi_notes = []
 
         for ch, pattern in enumerate(self.patterns):
-            hit = audio_triggers[ch] = pattern[self.i]
+            step = self.i
+            hit = self._audio_triggers[ch] = (pattern & (2 ** step)) > 0
             prev_two_step = (self.i - 2) % self.step_count
-            prev_two_hit = pattern[prev_two_step]
+            prev_two_hit = (pattern & (2 ** prev_two_step)) > 0
 
             if prev_two_hit:
-                midi_notes.append((ch, ch, 0))
+                self._midi_notes.append((ch, ch, 0))
             if hit:
-                midi_notes.append((ch, ch, 127))
+                self._midi_notes.append((ch, ch, 127))
 
-        self.emit(event.SEQ_STEP_TRIGGER_MIDI, midi_notes)
-        self.emit(event.SEQ_STEP_TRIGGER_CHANNELS, audio_triggers)
+        self.emit(event.SEQ_STEP_TRIGGER_MIDI, self._midi_notes)
+        self.emit(event.SEQ_STEP_TRIGGER_CHANNELS, self._audio_triggers)
     
     def update_active_voice(self, ch):
         self.active_ch = ch
@@ -178,19 +191,13 @@ class EuclideanSequencer(StepSequencer):
         """set EUC16 beat index per channel, delta might be -1 or 1"""
         self.euc_idxs[ch] = max(0, min(self.euc_idxs[ch] + delta, len(self.EUC16) - 1))
         self._calculate_pattern(ch)
-        print("-")
-        print(self)
 
     def update_offsets(self, ch, delta):
         """set offset per channel between -step_count to +step_count, delta might be -1 or 1"""
         self.offsets[ch] = (self.offsets[ch] - delta) % self.step_count
         self._calculate_pattern(ch)
-        print("-")
-        print(self)
 
     def update_lengths(self, ch, delta):
         """set step length per channel between 0 and step_count, delta might be -1 or 1"""
         self.lengths[ch] = max(0, min(self.lengths[ch] + delta, self.step_count))
         self._calculate_pattern(ch)
-        print("-")
-        print(self)

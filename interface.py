@@ -1,11 +1,10 @@
-import time
 import rotaryio
 import bitbangio
 import digitalio
 import board
 
 from adafruit_debouncer import Debouncer
-from adafruit_ticks import ticks_ms
+from adafruit_ticks import ticks_ms, ticks_diff
 import neopixel
 import adafruit_74hc595
 
@@ -57,6 +56,8 @@ class UI(event.EventEmitter):
             button = Debouncer(sw)
             self.buttons.append(button)
 
+        self._reset_threshold = ticks_ms()
+
         self.active_voice = 0
         self.active_menu = -1
 
@@ -85,13 +86,14 @@ class UI(event.EventEmitter):
             self.emit(event.UI_TEMPO_VALUE_CHANGE, self._encoder_delta)
 
     def update_buttons(self):
+        now = ticks_ms()
+
         for idx, button in enumerate(self.buttons):
             button.update()
 
             if button.pressing and self._encoder_delta:
                 if self.active_menu != idx:
                     self.active_menu = idx
-                    print(f"active menu: {self.active_menu}")
                 if idx == 0:
                     self.emit(
                         event.UI_HITS_VALUE_CHANGE, self.active_voice, self._encoder_delta
@@ -119,6 +121,10 @@ class UI(event.EventEmitter):
                 self.active_voice = idx
                 self.emit(event.UI_VOICE_CHANGE, self.active_voice)
 
+        if all(button.pressing for button in self.buttons) and ticks_diff(now, self._reset_threshold) > 500:
+            self._reset_threshold = now
+            self.emit(event.UI_TRIGGER_RESET_PATTERNS)
+
     def sync_clock_in(self):
         self.clock_in.update()
         if self.clock_in.fell:
@@ -127,54 +133,38 @@ class UI(event.EventEmitter):
 
 
 class LED:
-    def __init__(self, step_count=16):
+    def __init__(self):
         self.tempo_pin = digitalio.DigitalInOut(TEMPO_LED_PIN)
         self.tempo_pin.direction = digitalio.Direction.OUTPUT
-        self.tempo_pin.value = True
+        self.tempo_pin.value = False
 
         # using bitbangio as I messed up the default SPI pins
         spi = bitbangio.SPI(LEDS_595_SCLK, MOSI=LEDS_595_DATA)
         latch_pin = digitalio.DigitalInOut(LEDS_595_LATCH_PIN)
         self.sr = adafruit_74hc595.ShiftRegister74HC595(spi, latch_pin, number_of_shift_registers=2)
 
-        self.step_count = step_count
-        self.step_pins = [self.sr.get_pin((x-8) % step_count) for x in range(step_count)]
-        self.clear_steps()
-        self._prev_step_value = False
-        self.pattern = []
-    
-    def _test(self):
-        i = 0
-        while True:
-            print(i)
-            if i == 0: self.clear_steps()
-            i = (i+1) % 16
-            self.step_pins[i].value = True
-            time.sleep(.2)
+        self.pattern = 0b0
     
     def clear_steps(self):
-        for pin in self.step_pins:
-            pin.value = False
+        self.sr.gpio = bytearray((0, 0))
 
     def toggle_tempo_led(self, *args):
         self.tempo_pin.value = not self.tempo_pin.value
 
     def next_step(self, step):
-        prev_step = (step - 1) % self.step_count
-        self.step_pins[prev_step].value = self._prev_step_value
-        step_value = self.step_pins[step].value
-        self._prev_step_value = step_value
-        if not step_value:
-            self.step_pins[step].value = True
+        """sum up pattern and current step in an OR operation"""
+        value = self.pattern | 2 ** step
+        self._update_leds(value)
 
     def update_pattern(self, pattern):
         self.clear_steps()
         self.pattern = pattern
-        self._update_pattern()
+        self._update_leds(pattern)
 
-    def _update_pattern(self):
-        for step, hit in enumerate(self.pattern):
-            self.step_pins[step].value = hit
+    def _update_leds(self, value):
+        """value: 16 bit pattern byte"""
+        # split 16-bit pattern into two 8-bit bytes (one for each shift register)
+        self.sr.gpio = bytearray((value >> 8 & 0xFF, value & 0xFF))
 
 
 class NeoPixel:
@@ -186,7 +176,7 @@ class NeoPixel:
         self.pixels = neopixel.NeoPixel(board.GP2, n=step_count, brightness=0.04)
         self.pixels.fill(0)
         self.step_count = step_count
-        self.pattern = [0] * step_count
+        self.pattern = 0b0
         self._prev_pixel = self.BAR_COLOR
 
     def next_step(self, step):
@@ -195,7 +185,8 @@ class NeoPixel:
         self.pixels[step] = self.BAR_COLOR if step == 0 else self.HEAD_COLOR
 
     def update_pattern(self, pattern):
+        """pattern: integer representing the pattern"""
         self.pattern = pattern
-        for step, hit in enumerate(pattern):
-            self.pixels[step] = self.STEP_ON_COLOR if hit else 0
+        for step in range(pattern.bit_length()):
+            self.pixels[step] = self.STEP_ON_COLOR if (self.pattern & 2 ** step) > 0 else 0
         self._prev_pixel = self.pixels[0]
