@@ -143,7 +143,6 @@ class UI(event.EventEmitter):
             if self._encoder_delta:
                 self.emit(event.UI_TEMPO_VALUE_CHANGE, self._encoder_delta)
 
-
     def sync_clock_in(self):
         self.clock_in.update()
         if self.clock_in.fell:
@@ -188,8 +187,7 @@ class LED:
         self.pattern = pattern
         if self.sequence_mode or self.saving_mode:
             return
-        self.clear()
-        self._update_leds(pattern)
+        self.show_pattern()
 
     def set_sequence_mode(self, enabled):
         self.sequence_mode = enabled
