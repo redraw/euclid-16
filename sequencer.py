@@ -160,7 +160,7 @@ class EuclideanSequencer(StepSequencer):
     
     @staticmethod
     def _shrink(pattern, n):
-        return pattern & (2 ** n - 1)
+        return pattern & ((1 << n) - 1)
 
     @staticmethod
     def _rotate(pattern, n):
@@ -185,9 +185,9 @@ class EuclideanSequencer(StepSequencer):
         # calculate audio/midi triggers for step
         for ch, pattern in enumerate(self.patterns):
             step = self.i
-            hit = self._audio_triggers[ch] = (pattern & (2 ** step)) > 0
+            hit = self._audio_triggers[ch] = (pattern & (1 << step)) > 0
             prev_two_step = (self.i - 2) % self.step_count
-            prev_two_hit = (pattern & (2 ** prev_two_step)) > 0
+            prev_two_hit = (pattern & (1 << prev_two_step)) > 0
 
             if prev_two_hit:
                 self._midi_notes.append((ch, ch, 0))

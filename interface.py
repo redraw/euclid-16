@@ -146,8 +146,7 @@ class UI(event.EventEmitter):
     def sync_clock_in(self):
         self.clock_in.update()
         if self.clock_in.fell:
-            now = ticks_ms()
-            self.emit(event.UI_SYNC_CLOCK_IN, now)
+            self.emit(event.UI_SYNC_CLOCK_IN, self._now)
 
 
 class LED:
@@ -180,7 +179,7 @@ class LED:
         """sum up pattern and current step in an OR operation"""
         if self.sequence_mode or self.saving_mode: 
             return
-        value = self.pattern | 2 ** step
+        value = self.pattern | 1 << step
         self._update_leds(value)
 
     def update_pattern(self, pattern):
@@ -213,19 +212,19 @@ class LED:
 
     def show_sequence(self):
         self.clear()
-        self._update_leds(2 ** self.sequence_idx)
+        self._update_leds(1 << self.sequence_idx)
     
     def waiting(self):
         now = ticks_ms()
         if ticks_diff(now, self._waiting_tick) > 100:
             self._waiting_tick = now
             self._waiting_idx = (self._waiting_idx + 1) % 16
-            print(self._waiting_idx)
-            self._update_leds(2 ** self._waiting_idx - 1)
+            self._update_leds((1 << self._waiting_idx) - 1)
 
     def _update_leds(self, value):
         """value: 16 bit pattern byte"""
         # split 16-bit pattern into two 8-bit bytes (one for each shift register)
+        # to display the bits as LSB-first
         self.sr.gpio = bytearray((value >> 8 & 0xFF, value & 0xFF))
 
     def update(self):
@@ -254,5 +253,5 @@ class NeoPixel:
         """pattern: integer representing the pattern"""
         self.pattern = pattern
         for step in range(pattern.bit_length()):
-            self.pixels[step] = self.STEP_ON_COLOR if (self.pattern & 2 ** step) > 0 else 0
+            self.pixels[step] = self.STEP_ON_COLOR if (self.pattern & 1 << step) > 0 else 0
         self._prev_pixel = self.pixels[0]
