@@ -92,4 +92,3 @@ seq.play()
 while True:
     seq.update()
     ui.update()
-    leds.update()

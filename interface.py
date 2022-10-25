@@ -165,9 +165,6 @@ class LED:
         self.saving_mode = False
         self.sequence_idx = 0
 
-        self._waiting_idx = 0
-        self._waiting_tick = ticks_ms()
-    
     def clear(self):
         self.sr.gpio = bytearray((0, 0))
 
@@ -198,7 +195,7 @@ class LED:
     def set_saving_mode(self, enabled):
         self.saving_mode = enabled
         if enabled:
-            self.waiting_idx = 0
+            self._update_leds(0xFFFF)
         else:
             self.clear()
 
@@ -214,22 +211,11 @@ class LED:
         self.clear()
         self._update_leds(1 << self.sequence_idx)
     
-    def waiting(self):
-        now = ticks_ms()
-        if ticks_diff(now, self._waiting_tick) > 100:
-            self._waiting_tick = now
-            self._waiting_idx = (self._waiting_idx + 1) % 16
-            self._update_leds((1 << self._waiting_idx) - 1)
-
     def _update_leds(self, value):
         """value: 16 bit pattern byte"""
         # split 16-bit pattern into two 8-bit bytes (one for each shift register)
         # to display the bits as LSB-first
         self.sr.gpio = bytearray((value >> 8 & 0xFF, value & 0xFF))
-
-    def update(self):
-        if self.saving_mode:
-            self.waiting()
 
 
 class NeoPixel:
