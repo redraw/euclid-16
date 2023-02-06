@@ -2,7 +2,8 @@
 
 This is a prototype of a sequencer made in a Raspberry Pi Pico. Particulary, an euclidean sequencer, whose steps can be added/removed uniformely in the grid by rotating the encoder.
 
-![IMG_20221020_154256070](https://user-images.githubusercontent.com/10843208/197031804-b4de262d-72a9-4bc5-854a-e78b9255dff9.jpg)
+
+https://user-images.githubusercontent.com/10843208/217061688-98ad8c04-bbb4-4034-a97a-8226e16e5d99.mp4
 
 
 For the moment, features are:
