@@ -32,7 +32,7 @@ LEDS_595_LATCH_PIN = board.GP2
 LEDS_595_SCLK = board.GP3
 LEDS_595_DATA = board.GP4
 
-SYNC_CLOCK_IN = board.GP12
+SYNC_CLOCK_IN = board.GP13
 
 
 class UI(event.EventEmitter):
