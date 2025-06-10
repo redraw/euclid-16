@@ -1,3 +1,7 @@
 .vscode
 samplepack/*
 !samplepack/dr55
+
+# ignore kicad backups
+kicad/*-backups
+kicad/fp-info-cache
