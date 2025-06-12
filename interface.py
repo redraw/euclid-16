@@ -1,5 +1,5 @@
 import rotaryio
-import bitbangio
+import busio
 import digitalio
 import board
 
@@ -28,11 +28,11 @@ ENCODER_PINS = (
 ENCODER_BUTTON_PIN = board.GP26
 TEMPO_LED_PIN = board.GP22
 
-LEDS_595_LATCH_PIN = board.GP2
-LEDS_595_SCLK = board.GP3
-LEDS_595_DATA = board.GP4
+LEDS_595_SCLK = board.GP2
+LEDS_595_DATA = board.GP3
+LEDS_595_LATCH_PIN = board.GP4
 
-SYNC_CLOCK_IN = board.GP12
+SYNC_CLOCK_IN = board.GP14
 
 
 class UI(event.EventEmitter):
@@ -155,8 +155,7 @@ class LED:
         self.tempo_pin.direction = digitalio.Direction.OUTPUT
         self.tempo_pin.value = False
 
-        # using bitbangio as I messed up the default SPI pins
-        spi = bitbangio.SPI(LEDS_595_SCLK, MOSI=LEDS_595_DATA)
+        spi = busio.SPI(LEDS_595_SCLK, MOSI=LEDS_595_DATA)
         latch_pin = digitalio.DigitalInOut(LEDS_595_LATCH_PIN)
         self.sr = adafruit_74hc595.ShiftRegister74HC595(spi, latch_pin, number_of_shift_registers=2)
 
@@ -170,7 +169,7 @@ class LED:
 
     def toggle_tempo_led(self, step):
         """turn on tempo led on even numbers"""
-        self.tempo_pin.value = step % 2 == 0
+        self.tempo_pin.value = step % 4 == 0
 
     def next_step(self, step):
         """sum up pattern and current step in an OR operation"""

@@ -138,7 +138,7 @@ class EuclideanSequencer(StepSequencer):
 
     def __str__(self):
         return "\n".join(
-            f"ch: {ch} pattern: {bin(pattern)}" for ch, pattern in enumerate(self.patterns)
+            f"ch: {ch} pattern: {pattern:016b}" for ch, pattern in enumerate(self.patterns)
         )
 
     def randomize(self, *args):

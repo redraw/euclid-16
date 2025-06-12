@@ -13,10 +13,10 @@ import event
 
 SAMPLE_PACK = "dr55"
 SAMPLE_FOLDER = os.listdir("samplepack")
-SAMPLE_RATE = 44100
+SAMPLE_RATE = 22500
 MAX_VOICES = 4
 
-dac = audiopwmio.PWMAudioOut(board.GP13)
+dac = audiopwmio.PWMAudioOut(board.GP15)
 # dac = audiobusio.I2SOut(board.GP10, board.GP11, board.GP9)
 mixer = audiomixer.Mixer(voice_count=MAX_VOICES, sample_rate=SAMPLE_RATE, channel_count=1)
 dac.play(mixer)
@@ -35,6 +35,7 @@ def load_samplepack(name, randomize=False):
             filename = random.choice(filenames)
         else:
             filename = filenames[idx]
+        print(f"loading {filename}...")
         samples.append(audiocore.WaveFile(open(f"{pack}/{filename}", "rb")))
 
 
@@ -42,7 +43,7 @@ def play_audio(triggers):
     for ch, trigger in enumerate(triggers):
         if trigger:
             sample = samples[ch]
-            mixer.voice[ch].level = 0.1
+            mixer.voice[ch].level = 0.8
             mixer.voice[ch].play(sample)
 
 
@@ -87,7 +88,9 @@ seq.register(event.SEQ_SEQUENCE_SAVING, leds.set_saving_mode)
 # seq.register(event.SEQ_PATTERN_CHANGE, ring.update_pattern)
 
 seq.load_sequences()
+# seq.randomize()
 seq.play()
+print(seq)
 
 while True:
     seq.update()
