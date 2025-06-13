@@ -17,24 +17,26 @@ For the moment, features are:
 - Save up to 16 sequences
 
 ## Usage
-If encoder is rotated without holding any button, it changes TEMPO.
+- **Rotate encoder (no buttons held)** → Adjust **TEMPO**
 
-Button presses select voices, however if a button a holded and encoder is rotated, they have different actions.
-- btn #1: add/remove HITS
-- btn #2: add/remove OFFSET
-- btn #3: add/remove STEPS
-- btn #4: schedule sequence 1-16
-  - if encoder button is pressed when btn is held, sequence is saved.
+- **Press a button** → Select **voice**
 
-A single encoder press, PLAY/STOP sequence.
-- btn #1 + #2: clear pattern
-- btn #2 + #3: random pattern
+- **Hold a button + rotate encoder**:
+  - **Btn 1** → Add/remove **HITS**
+  - **Btn 2** → Add/remove **OFFSET**
+  - **Btn 3** → Add/remove **STEPS**
+  - **Btn 4** → Select sequence **(1–16)**
+    - Also press **encoder button** while holding Btn 4 → **Save** sequence
+
+- **Press encoder button** → **PLAY/STOP** sequence
+
+- **Button combos**:
+  - **Btn 1 + Btn 2** → **Clear** pattern
+  - **Btn 2 + Btn 3** → **Random** pattern
 
 ## TODO
-- Porting to Arduino C. Despite CircuitPython is great to play around, it doesn't provide hardware timer interrupts, which is critical to keep tempo consistent. Maybe worth trying plain MicroPython, but C surely is a better idea.
-- Add more voices
-- Sync out
-- MIDI sync in
-- Improve RC filter on audio PWM pin (currently, just a 4.7k + 1uF cap)
-
-![](https://www.ontrak.net/Pwm1.gif)
+- [ ] Porting to Arduino C. Despite CircuitPython is great to play around, it doesn't provide hardware timer interrupts, which is critical to keep tempo consistent. Maybe worth trying plain MicroPython, but C surely is a better idea.
+- [ ] Add more voices
+- [ ] Sync out
+- [x] MIDI sync in
+- [x] Improve RC filter on audio PWM pin (currently, just a 4.7k + 1uF cap)
