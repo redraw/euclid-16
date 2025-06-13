@@ -1,3 +1,4 @@
+import countio
 import rotaryio
 import busio
 import digitalio
@@ -32,7 +33,7 @@ LEDS_595_SCLK = board.GP2
 LEDS_595_DATA = board.GP3
 LEDS_595_LATCH_PIN = board.GP4
 
-SYNC_CLOCK_IN = board.GP14
+SYNC_CLOCK_IN = board.GP13  # assumes PPQN = 4
 
 
 class UI(event.EventEmitter):
@@ -61,10 +62,9 @@ class UI(event.EventEmitter):
         self.active_voice = 0
         self.active_menu = -1
 
-        ext_clock_pin = digitalio.DigitalInOut(SYNC_CLOCK_IN)
-        ext_clock_pin.direction = digitalio.Direction.INPUT
-        ext_clock_pin.pull = digitalio.Pull.UP
-        self.clock_in = Debouncer(ext_clock_pin, 0.005)
+        self.clock_in = countio.Counter(SYNC_CLOCK_IN, edge=countio.Edge.RISE)
+        self._last_clock_in_count = 0
+        self._clock_pulses = 0
 
     def update(self):
         self._now = ticks_ms()
@@ -144,9 +144,14 @@ class UI(event.EventEmitter):
                 self.emit(event.UI_TEMPO_VALUE_CHANGE, self._encoder_delta)
 
     def sync_clock_in(self):
-        self.clock_in.update()
-        if self.clock_in.fell:
-            self.emit(event.UI_SYNC_CLOCK_IN, self._now)
+        count = self.clock_in.count
+        if count == self._last_clock_in_count:
+            return
+
+        self._clock_pulses += 1
+        self._last_clock_in_count = count
+
+        self.emit(event.UI_SYNC_CLOCK_IN, self._now)
 
 
 class LED:

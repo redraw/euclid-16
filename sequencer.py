@@ -17,6 +17,7 @@ class StepSequencer(event.EventEmitter):
     def __init__(self, step_count=16, tempo=120, playing=False, channels=6, seqno=0):
         super().__init__()
         self.ext_trigger = False  # midi clocked or not
+        self.ext_trigger_millis = 0
         self.steps_per_beat = 4  # 16th note
         self.channels = channels  # aka. voices
         self.step_count = step_count
@@ -25,9 +26,12 @@ class StepSequencer(event.EventEmitter):
         self.last_beat_millis = ticks_ms()  # 'tempo' in our native tongue
         self.playing = playing  # is sequence running or not (but use .play()/.pause())
 
+    @property
+    def tempo(self):
+        return 60_000 // self.beat_millis // self.steps_per_beat
+
     def set_tempo(self, tempo):
         """Sets the internal tempo. beat_millis is 1/16th note time in milliseconds"""
-        self.tempo = tempo
         self.beat_millis = 60_000 // self.steps_per_beat // tempo
         self.emit(event.SEQ_TEMPO_CHANGE, tempo)
 
@@ -35,14 +39,23 @@ class StepSequencer(event.EventEmitter):
         self.set_tempo(self.tempo + delta)
 
     def trigger_next(self, now):
-        """Trigger next step in sequence (and thus make externally triggered)"""
+        """Trigger externally next step in sequence (should be a beat, 1/16th note)"""
+        if not self.ext_trigger:
+            print("MIDI sync is now ON.")
+
         self.ext_trigger = True
+        self.ext_trigger_millis += ticks_diff(now, self.last_beat_millis)
+
         self.trigger(now, self.beat_millis)
+
+        # avg tempo per beat
+        if self.i % self.steps_per_beat == 0:
+            self.beat_millis = self.ext_trigger_millis // self.steps_per_beat
+            self.ext_trigger_millis = 0
 
     def trigger(self, now, delta_t):
         if not self.playing:
             return
-        fudge = 0  # seems more like 3-10
 
         # go to next step in sequence, get new note
         self.i = (self.i + 1) % self.step_count
@@ -50,8 +63,7 @@ class StepSequencer(event.EventEmitter):
 
         # calculate next note timing and held note timing
         err_t = delta_t - self.beat_millis  # how much we are over
-        # print("err_t:",self.i, err_t, self.beat_millis)
-        self.last_beat_millis = now - err_t - fudge  # adjust for our overage
+        self.last_beat_millis = now - err_t # adjust for our overage
 
     def trigger_step(self):
         return NotImplemented
@@ -59,7 +71,6 @@ class StepSequencer(event.EventEmitter):
     def update(self):
         """Update state of sequencer. Must be called regularly in main"""
         now = ticks_ms()
-        # delta_t = now - self.last_beat_millis
         delta_t = ticks_diff(now, self.last_beat_millis)
 
         # if time for new note, trigger it
@@ -68,7 +79,7 @@ class StepSequencer(event.EventEmitter):
                 self.trigger(now, delta_t)
             else:
                 # fall back to internal triggering if not externally clocked for a while
-                if delta_t > self.beat_millis * 4:
+                if delta_t > self.beat_millis * 8:
                     self.ext_trigger = False
                     print("Turning EXT TRIGGER off")
 
@@ -157,6 +168,8 @@ class EuclideanSequencer(StepSequencer):
 
         if ch == self.active_ch:
             self.emit(event.SEQ_PATTERN_CHANGE, pattern)
+
+        print(self, end="\n\n")
     
     @staticmethod
     def _shrink(pattern, n):
@@ -164,11 +177,6 @@ class EuclideanSequencer(StepSequencer):
 
     @staticmethod
     def _rotate(pattern, n):
-        """
-        Taking advantage of the RPi Pico 32-bit CPU,
-        we can perform a 32-bit bitwise operation
-        to circular shift the 16-bit pattern.
-        """
         n %= 16
         return (pattern >> n) | (pattern << 16 - n) & 0xFFFF
 

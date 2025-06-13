@@ -90,7 +90,6 @@ seq.register(event.SEQ_SEQUENCE_SAVING, leds.set_saving_mode)
 seq.load_sequences()
 # seq.randomize()
 seq.play()
-print(seq)
 
 while True:
     seq.update()

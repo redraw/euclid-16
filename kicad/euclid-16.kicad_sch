@@ -4699,7 +4699,7 @@
 			)
 		)
 	)
-	(global_label "midi_clkin"
+	(global_label "clock_in"
 		(shape input)
 		(at 93.98 91.44 270)
 		(fields_autoplaced yes)
@@ -4711,7 +4711,7 @@
 		)
 		(uuid "e3eedbdb-3c70-4b0c-ab7f-60d6f51030cc")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 93.98 103.9804 90)
+			(at 93.98 102.1661 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4765,7 +4765,7 @@
 			)
 		)
 	)
-	(global_label "midi_clkin"
+	(global_label "clock_in"
 		(shape input)
 		(at 245.11 76.2 180)
 		(fields_autoplaced yes)
@@ -4777,7 +4777,7 @@
 		)
 		(uuid "f2bf06f2-7757-4876-bc3e-9a1f268fe42c")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 232.5696 76.2 0)
+			(at 234.3839 76.2 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5933,7 +5933,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "MIDI sync in"
+		(property "Value" "Clock IN"
 			(at 255.27 78.1049 0)
 			(effects
 				(font
@@ -8263,7 +8263,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "Audio out"
+		(property "Value" "Audio OUT"
 			(at 255.27 98.4249 0)
 			(effects
 				(font
