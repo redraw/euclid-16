@@ -13,7 +13,7 @@ For the moment, features are:
 - MIDI USB note output
 - Clock input 5V trigger pulse (ie. used by Korg Volca, etc)
 - 16 led using 2 shift registers 74hc595, or NeoPixel display
-- Event-based system to hook into seq/UI events, see _code.py_
+- Event-based system to hook into seq/UI events, see _src/main.py_
 - Save up to 16 sequences
 
 ## Usage
